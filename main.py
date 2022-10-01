@@ -15,7 +15,7 @@ def add_info(add_platform, add_email, add_password):
 
 def specific(picked_platform):
     res = cur.execute("SELECT * FROM accounts WHERE platform=?", [picked_platform])
-    rows = res.fetchall
+    rows = res.fetchall()
     for row in rows:
         print(row)
 
@@ -29,15 +29,15 @@ def view_previous():
 
 conn = sqlite3.connect("PasswordManager.db")
 cur = conn.cursor()
-cur.execute("CREATE TABLE IF NOT EXIST accounts(platform, email, password)")
+cur.execute("CREATE TABLE IF NOT EXISTS accounts(platform, email, password)")
 
-print("All information provided will be protected.")
+print("\nAll information provided will be protected.\n")
 
 create_password = input("Wish to add new account? (Y/N)\n> ").lower()
 
 while True:
     if create_password == 'y':
-        platform = input("\nPlatform: ")
+        platform = input("\nPlatform: ").title()
         email = input("Email: ")
         password = getpass("Password: ")
         add_info(platform, email, password)
@@ -47,12 +47,12 @@ while True:
             view_previous()
             pull_password = input("Do you wish to view a password? (Y/N)\n> ").lower()
             if pull_password == 'y':
-                what_platform = input("what platform?\n> ").title()
+                what_platform = input("What platform?\n> ").title()
                 specific(what_platform)
 
         elif see_previous == 'n':
             break
-    add_more = input("Do you wish to add more? (Y/N)\n> ")
+    add_more = input("Do you wish to add more? (Y/N)\n> ").lower()
     if add_more == 'y':
         create_password = add_more
     elif add_more == 'n':
