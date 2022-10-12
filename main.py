@@ -31,7 +31,8 @@ conn = sqlite3.connect("PasswordManager.db")
 cur = conn.cursor()
 cur.execute("CREATE TABLE IF NOT EXISTS accounts(platform, email, password)")
 
-print("\nAll information provided will be protected.\n")
+# Working on implementing encrpytion as I am currently learning it
+print("\nAll information provided will be NOT be protected.\n")
 
 create_password = input("Wish to add new account? (Y/N)\n> ").lower()
 
