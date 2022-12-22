@@ -3,6 +3,11 @@ A program that allows you to add and pull passwords from a local database. All y
 
 **Uses**
 Python;
-- Built-in sqlite3 & getpass
+- Built-in sqlite3, getpass, os, time
+
+Packages:
+- Cryptography
+- PrettyTable
+- dotenv
 
 > Note: My second ever Python project. However, only person to view the data entered is YOU!
