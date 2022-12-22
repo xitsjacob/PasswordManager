@@ -1,65 +1,155 @@
-# Current Features:
-# - Add more
-# - Check if correct
-# - View Previous (including password when select a platform)
-
-# Started with pulling passwords
-
-import sqlite3
+from cryptography.fernet import Fernet
+from prettytable import PrettyTable
+from dotenv import load_dotenv
 from getpass import getpass
 
-def add_info(add_platform, add_email, add_password):
-    cur.execute("INSERT INTO accounts(platform, email, password) VALUES(?, ?, ?)", (add_platform, add_email, add_password))
-    conn.commit()
+import sqlite3
+import os
+import time
 
-
-def specific(picked_platform):
-    res = cur.execute("SELECT * FROM accounts WHERE platform=?", [picked_platform])
-    rows = res.fetchall()
-    for row in rows:
-        print(row)
-
-
-def view_previous():
-    res = cur.execute("SELECT platform FROM accounts")
-    rows = res.fetchall()
-    for row in rows:
-        print(row)
-
+load_dotenv(".env")
 
 conn = sqlite3.connect("PasswordManager.db")
 cur = conn.cursor()
-cur.execute("CREATE TABLE IF NOT EXISTS accounts(platform, email, password)")
 
-# Working on implementing encrpytion as I am currently learning it
-print("\nAll information provided will be NOT be protected.\n")
+def create_database():
+    cur.execute("CREATE TABLE IF NOT EXISTS passwords (service VARCHAR, user VARCHAR, password VARCHAR)")
 
-create_password = input("Wish to add new account? (Y/N)\n> ").lower()
+def clear_terminal():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def DB_Query():
+    clear_terminal()
+    
+    cur.execute("SELECT service, user FROM passwords")
+    encrypted_data = cur.fetchall()
+
+    decrypted_data = []
+    for service, user in encrypted_data:
+        decrypted_service = fernet.decrypt(service).decode('utf8')
+        decrypted_user = fernet.decrypt(user).decode('utf8')
+        decrypted_data.append([decrypted_service, decrypted_user])
+
+    query = PrettyTable()
+    query.clear_rows()
+    query.field_names = ["Service", "User"]
+    query.add_rows(
+        decrypted_data
+    )
+    
+    print(query)
+
+def add():
+    service = fernet.encrypt(bytes(input("Platform: ").title().encode('utf8')))
+    user = fernet.encrypt(bytes(input("User: ").encode('utf8')))
+    pw = fernet.encrypt(bytes(getpass("Password: ").encode('utf8')))
+
+    cur.execute("INSERT INTO passwords (service, user, password) VALUES (?, ?, ?)", (service, user, pw))
+
+    conn.commit()
+
+def remove():
+    del_service = input("Service you wish to delete: ").title()
+    del_user = input("User you wish to delete: ")
+    cur.execute("SELECT service, user FROM passwords")
+    encrypted_data = cur.fetchall()
+    for service, user in encrypted_data:
+        decrypted_service = fernet.decrypt(service).decode('utf8')
+        decrypted_user = fernet.decrypt(user).decode('utf8')
+        if decrypted_service == del_service and decrypted_user == del_user:
+            cur.execute("DELETE FROM passwords WHERE service=? and user=?", (service, user))
+    conn.commit()
+
+def get():
+    get_service = input("Password Service: ").title()
+    get_user = input("Password User: ")
+
+    cur.execute("SELECT * FROM passwords")
+    encrypted_data = cur.fetchall()
+    for service, user, pwd in encrypted_data:
+        decrypted_service = fernet.decrypt(service).decode('utf8')
+        decrypted_user = fernet.decrypt(user).decode('utf8')
+        if decrypted_service == get_service and decrypted_user == get_user:
+            
+            decrypted_pwd = fernet.decrypt(pwd).decode('utf8')
+            info = PrettyTable()
+            info.clear_rows()
+            info.field_names = ["Service", "User", "Password"]
+            info.add_row([decrypted_service, decrypted_user, decrypted_pwd])
+
+            print(f"\n{info}")
+    resume = input("Press ENTER to continue.").lower()
+
+def update():
+    update_service = input("Service you wish to update: ").title()
+    update_user = input("User you wish to update: ")
+
+    cur.execute("SELECT * FROM passwords")
+    encrypted_data = cur.fetchall()
+    for service, user, pwd in encrypted_data:
+        decrypted_service = fernet.decrypt(service).decode('utf8')
+        decrypted_user = fernet.decrypt(user).decode('utf8')
+        if decrypted_service == update_service and decrypted_user == update_user:
+            edit_service = fernet.encrypt(bytes(input("\nUpdate Service: ").title().encode('utf8')))
+            edit_user = fernet.encrypt(bytes(input("Update User: ").encode('utf8')))
+            edit_pwd = fernet.encrypt(bytes(getpass("Update Password: ").encode('utf8')))
+            
+            cur.execute("DELETE FROM passwords WHERE service=? and user=?", (service, user))
+            cur.execute("INSERT INTO passwords (service, user, password) VALUES (?, ?, ?)", (edit_service, edit_user, edit_pwd))
+
+    conn.commit()
+
+
+create_database()
+key = Fernet.generate_key()
+
+if "FERNET_KEY" not in os.environ:
+    with open(".env", "a") as f:
+        f.write("FERNET_KEY=" + key.decode())
+
+if "MASTER_PASSWORD" not in os.environ:
+    while True:
+        create_master_pw = input("Create a Master Password: ")
+        confirm_master_pw = input("Confirm Master Password: ")
+        if create_master_pw == confirm_master_pw:
+            with open(".env", "a") as f:
+                f.write("\nMASTER_PASSWORD=" + f'"{create_master_pw}"')
+                break
+        else:
+            clear_terminal()
+
+clear_terminal()
+master_pw = getpass("Master Password: ")
+if master_pw != os.getenv("MASTER_PASSWORD"):
+    print("Incorrect Password. Shutting down...")
+    time.sleep(5)
+    quit(1)
+
+load_dotenv(".env")
+
+fernet = Fernet(os.getenv("FERNET_KEY"))
+DB_Query()
 
 while True:
-    if create_password == 'y':
-        platform = input("\nPlatform: ").title()
-        email = input("Email: ")
-        password = getpass("Password: ")
-        add_info(platform, email, password)
-    elif create_password == 'n':
-        see_previous = input("Do you wish to see previous passwords? (Y/N)\n> ").lower()
-        if see_previous == 'y':
-            view_previous()
-            pull_password = input("Do you wish to view a password? (Y/N)\n> ").lower()
-            if pull_password == 'y':
-                what_platform = input("What platform?\n> ").title()
-                specific(what_platform)
+    DB_Query()
+    choice = input("Enter Choice (add/remove/get/update/quit): ").lower()
 
-        elif see_previous == 'n':
-            break
-    add_more = input("Do you wish to add more? (Y/N)\n> ").lower()
-    if add_more == 'y':
-        create_password = add_more
-    elif add_more == 'n':
+    if choice == 'add':
+        add()
+    elif choice == 'remove':
+        remove()
+    elif choice == 'get':
+        get()
+    elif choice == 'update':
+        update()
+    elif choice == 'quit':
+        print("Shutting down...")
+        time.sleep(3)
         break
     else:
-        print("Assuming no.")
-        break
+        print("Invalid command.")
+        time.sleep(3)
 
+conn.commit()
 conn.close()
